@@ -1,7 +1,15 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using UserModule.Models;
 using UserModule.Repositories;
+using Microsoft.Extensions.Configuration;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.Collections.Generic;
+
 
 namespace UserModule.Controllers
 {
@@ -10,9 +18,11 @@ namespace UserModule.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserRepository _iuserRepository;
-        public UserController(IUserRepository iuserRepository)
+        private readonly IConfiguration configuration;
+        public UserController(IUserRepository iuserRepository,IConfiguration configuartion)
         {
             _iuserRepository = iuserRepository;
+            this.configuration=configuartion;
         }
         /// <summary>
         /// Register User
@@ -34,11 +44,27 @@ namespace UserModule.Controllers
         /// <returns>login user details</returns>
 
         [HttpGet]
-        [Route("login")]
-        public async Task<IActionResult> UserLogin(Login login)
+        [Route("login/{uname}/{pwd}")]
+        public async Task<IActionResult> UserLogin(string uname,string pwd)
         {
-            var userlogin = await _iuserRepository.UserLogin(login);
-            return Ok(userlogin);
+            Token token = null;
+            try
+            {
+                var new_user = await _iuserRepository.UserLogin(uname,pwd);
+                if (new_user != null)
+                {
+                    token = new Token() { Id = new_user.Id, token = GenerateJwtToken(uname), message = "Success" };
+                }
+                else
+                {
+                    token = new Token() { token = null, message = "UnSuccess" };
+                }
+                return Ok(token);
+            }
+            catch (Exception ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         /// <summary>
@@ -78,6 +104,29 @@ namespace UserModule.Controllers
         public async Task<IActionResult> DeleteUser(int userid)
         {
             return Ok(await _iuserRepository.DeleteProfile(userid));
+        }
+        /*Token based authentication*/
+        private string GenerateJwtToken(string uname)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, uname),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.NameIdentifier, uname),
+                new Claim(ClaimTypes.Role,uname)
+            };
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JwtKey"]));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            // recommended is 5 min
+            var expires = DateTime.Now.AddDays(Convert.ToDouble(configuration["JwtExpireDays"]));
+            var token = new JwtSecurityToken(
+                configuration["JwtIssuer"],
+                configuration["JwtIssuer"],
+                claims,
+                expires: expires,
+                signingCredentials: credentials
+            );
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

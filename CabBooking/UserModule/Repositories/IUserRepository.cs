@@ -9,7 +9,7 @@ namespace UserModule.Repositories
     public interface IUserRepository
     {
         Task<bool> UserRegister(User users);
-        Task<Login> UserLogin(Login login);
+        Task<Login> UserLogin(string uname,string pwd);
         Task<User> GetProfile(int userid);
         Task<bool> UpdateProfile(User users);
         Task<bool> DeleteProfile(int userid);

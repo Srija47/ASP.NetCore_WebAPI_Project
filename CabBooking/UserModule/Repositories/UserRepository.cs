@@ -18,9 +18,9 @@ namespace UserModule.Repositories
             _context.Users.Add(users);
             return (await _context.SaveChangesAsync()) > 0;
         }
-        public async Task<Login> UserLogin(Login login)
+        public async Task<Login> UserLogin(string uname,string pwd)
         {
-            var user = await _context.Users.SingleOrDefaultAsync(e => e.Name == login.Name && e.Password == login.Password);
+            var user = await _context.Users.SingleOrDefaultAsync(e => e.Name == uname && e.Password == pwd);
             if (user != null)
             {
                 return new Login
